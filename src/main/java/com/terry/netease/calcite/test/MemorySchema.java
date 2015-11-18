@@ -3,10 +3,17 @@ package com.terry.netease.calcite.test;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.calcite.schema.Function;
+import org.apache.calcite.schema.ScalarFunction;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.impl.ScalarFunctionImpl;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import com.terry.netease.calcite.test.MemoryData.Database;
+import com.terry.netease.calcite.test.function.TimeOperator;
 import com.terry.netease.calcite.test.table.MemoryTable;
 
 public class MemorySchema extends AbstractSchema {
@@ -27,4 +34,17 @@ public class MemorySchema extends AbstractSchema {
         
         return tables;
     }
+    
+    protected Multimap<String, Function> getFunctionMultimap() {
+    	ImmutableMultimap<String,ScalarFunction> funcs = ScalarFunctionImpl.createAll(TimeOperator.class);
+    	Multimap<String, Function> functions = HashMultimap.create();
+    	for(String key : funcs.keySet()) {
+    		for(ScalarFunction func : funcs.get(key)) {
+        		functions.put(key, func);
+    		}
+    	}
+    	
+    	return functions;
+    }
+    
 }

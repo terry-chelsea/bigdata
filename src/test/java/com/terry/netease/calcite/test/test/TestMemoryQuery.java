@@ -28,9 +28,15 @@ public class TestMemoryQuery {
                 System.out.println("Catalog : " + result.getString(1) + ",Database : " + result.getString(2) + ",Table : " + result.getString(3));
             }
             result.close();
+            result = connection.getMetaData().getColumns(null, null, "Student", null);
+            while(result.next()) {
+                System.out.println("name : " + result.getString(4) + ", type : " + result.getString(5) + ", typename : " + result.getString(6));
+            }
+            result.close();
             
             Statement st = connection.createStatement();
-            result = st.executeQuery("select \"home\", 1 , count(1) from \"Student\" as S INNER JOIN \"Class\" as C on S.\"classId\" = C.\"id\" group by \"home\"");
+            result = st.executeQuery("select THE_YEAR(\"birthday\"), 1 , count(1) from \"Student\" as S "
+            		+ "INNER JOIN \"Class\" as C on S.\"classId\" = C.\"id\" group by THE_YEAR(\"birthday\")");
             while(result.next()) {
             	System.out.println(result.getString(1) + "\t" + result.getString(2) + "\t" + result.getString(3));
             }

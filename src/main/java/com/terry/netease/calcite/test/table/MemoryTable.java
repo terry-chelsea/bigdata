@@ -1,5 +1,8 @@
 package com.terry.netease.calcite.test.table;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.AbstractEnumerable;
 import org.apache.calcite.linq4j.Enumerable;
@@ -12,8 +15,6 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 
 import com.terry.netease.calcite.test.MemoryData;
 import com.terry.netease.calcite.test.MemoryEnumerator;
-import com.terry.netease.calcite.test.MemoryData.Column;
-import com.terry.netease.calcite.test.MemoryData.Table;
 
 public class MemoryTable extends AbstractTable implements ScannableTable {
     private MemoryData.Table sourceTable;
@@ -50,10 +51,14 @@ public class MemoryTable extends AbstractTable implements ScannableTable {
 
 
 	public Enumerable<Object[]> scan(DataContext root) {
+		final List<String> types = new ArrayList<String>(sourceTable.columns.size());
+		for(MemoryData.Column column : sourceTable.columns) {
+			types.add(column.type);
+		}
         final int[] fields = identityList(this.dataType.getFieldCount());
         return new AbstractEnumerable<Object[]>() {
             public Enumerator<Object[]> enumerator() {
-                return new MemoryEnumerator<Object[]>(fields, sourceTable.data);
+                return new MemoryEnumerator<Object[]>(fields, types, sourceTable.data);
             }
         };
 	}
