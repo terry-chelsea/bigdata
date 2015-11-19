@@ -1,8 +1,8 @@
 package com.terry.netease.calcite.test;
 
+import java.sql.Date;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,8 +52,8 @@ public class DateFormat {
     public static Date stringToDate(String str, String pattern) {
         Date date = null;
         try {
-            date = getDateFormat(pattern).parse(str);
-        } catch (ParseException e) {
+            date = Date.valueOf(str);
+        } catch (Exception e) {
             throw new IllegalArgumentException("'" + str + "' is not a valid date of pattern '" + pattern + "'", e);
         }
         return date;

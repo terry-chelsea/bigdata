@@ -18,19 +18,19 @@
         <dependency>
 			<groupId>org.apache.calcite</groupId>
 			<artifactId>calcite-core</artifactId>
-			<version>1.3.0-incubating</version>
+			<version>1.4.0-incubating</version>
 		</dependency>
         
         <dependency>
 			<groupId>org.apache.calcite</groupId>
 			<artifactId>calcite-avatica</artifactId>
-			<version>1.3.0-incubating</version>
+			<version>1.4.0-incubating</version>
 		</dependency>
         
         <dependency>
 			<groupId>org.apache.calcite</groupId>
 			<artifactId>calcite-linq4j</artifactId>
-			<version>1.3.0-incubating</version>
+			<version>1.4.0-incubating</version>
 		</dependency>
         
     <dependency>

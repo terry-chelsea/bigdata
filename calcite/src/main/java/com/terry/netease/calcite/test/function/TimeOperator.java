@@ -12,13 +12,13 @@ public class TimeOperator {
 		return cal.get(Calendar.YEAR);
 	}
 	
-	public int THE_YEAR(int date) {
+/*	public int THE_YEAR(int date) {
 		long mills = (long) date * (1000 * 3600 * 24);
 		Date dt = Date.valueOf(DateFormat.formatToDateStr(mills));
 		Calendar cal = Calendar.getInstance();
 		cal.setTime(dt);
 		return cal.get(Calendar.YEAR);
-	}
+	}*/
 	
 	public Integer THE_MONTH(Date date) {
 		return 6;

@@ -1,7 +1,6 @@
 package com.terry.netease.calcite.test;
 
 import java.math.BigDecimal;
-import java.util.Date;
 import java.util.List;
 
 import org.apache.calcite.linq4j.Enumerator;
@@ -70,10 +69,13 @@ public class MemoryEnumerator<E>  implements Enumerator<E> {
         // TODO use data type enum instead of string comparison
         if ("date".equals(dataType)) {
             // convert epoch time
+        	/*
             Date dateValue = DateFormat.stringToDate(strValue); // NOTE: forces GMT timezone
             long millis = dateValue.getTime();
             long days = millis / (1000 * 3600 * 24);
             return Integer.valueOf((int) days); // Optiq expects Integer instead of Long. by honma
+            */
+        	return DateFormat.stringToDate(strValue);
         } else if ("tinyint".equals(dataType)) {
             return Byte.valueOf(strValue);
         } else if ("short".equals(dataType) || "smallint".equals(dataType)) {
