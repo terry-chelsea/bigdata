@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.kylin.client.KylinClientException;
 import org.apache.kylin.client.meta.ColumnMeta;
 import org.apache.kylin.client.meta.CubeDescMeta;
 import org.apache.kylin.client.meta.CubeDimensionMeta;
@@ -42,22 +43,23 @@ public class KylinGetMethod extends KylinMethod {
 		this.httpClient = httpClient;
 	}
 	
-	public List<ProjectMeta> getAllProject() {
+	public List<ProjectMeta> getAllProject() throws KylinClientException {
 		return getAllProject(0, Integer.MAX_VALUE);
 	}
 	
-	public List<ProjectMeta> getAllProject(int offset, int limit) {
+	public List<ProjectMeta> getAllProject(int offset, int limit) 
+			throws KylinClientException{
 		String url = String.format("%s/kylin/api/projects?limit=%d&offset=%d", toBaseUrl(), limit, offset);
 		InputStream is = getRequest(url);
-		if(is == null) 
-			return null;
 		
 		List<ProjectInstance> projects = null;
+		String jsonData = null;
 		try {
-			projects = jsonMapper.readValue(is, new TypeReference<List<ProjectInstance>>() {});
+			jsonData = readFromInputStream(is);
+			projects = jsonMapper.readValue(jsonData, 
+					new TypeReference<List<ProjectInstance>>() {});
 		} catch (IOException e) {
-			logger.error("Get all projects response from " + url + " parse with json error !", e);
-			return null;
+			throw createJsonError(url, jsonData, e);
 		} finally {
 			Utils.close(is);
 		}
@@ -71,23 +73,26 @@ public class KylinGetMethod extends KylinMethod {
 		return projectMetas;
 	}
 	
-	public List<CubeMeta> getProjectCubes(ProjectMeta project) {
+	public List<CubeMeta> getProjectCubes(ProjectMeta project) 
+			throws KylinClientException {
 		return getProjectCubes(project, 0, Integer.MAX_VALUE);
 	}
 	
-	public CubeMeta getCubeByName(ProjectMeta project, String cubeName) {
+	public CubeMeta getCubeByName(ProjectMeta project, String cubeName) 
+			throws KylinClientException {
 		String projectName = project.getProjectName();
 		String url = String.format("%s/kylin/api/cubes?limit=%d&offset=%d&projectName=%s&cubeName=%s", 
 				toBaseUrl(), 1, 0, projectName, cubeName);
 		List<CubeMeta> cubes = getCubeMetas(url, project);
 		if(cubes == null || cubes.isEmpty()) {
-			logger.warn("Can not find cube by name " + cubeName);
-			return null;
+			cannotFindError("CUBE", cubeName);
 		}
 		
 		return cubes.get(0);
 	}
-	public List<CubeMeta> getProjectCubes(ProjectMeta project, int offset, int limit) {
+	
+	public List<CubeMeta> getProjectCubes(ProjectMeta project, int offset, int limit) 
+			throws KylinClientException {
 		String projectName = project.getProjectName();
 		String url = String.format("%s/kylin/api/cubes?limit=%d&offset=%d&projectName=%s", 
 				toBaseUrl(), limit, offset, projectName);
@@ -95,27 +100,26 @@ public class KylinGetMethod extends KylinMethod {
 		return getCubeMetas(url, project);
 	}
 	
-	public CubeDescMeta getCubeDescription(CubeMeta cube) {
+	public CubeDescMeta getCubeDescription(CubeMeta cube) 
+			throws KylinClientException {
 		String cubeName = cube.getCubeName();
 		ProjectMeta project = cube.getProject();
 		String url = String.format("%s/kylin/api/cube_desc/%s", toBaseUrl(), cubeName);
-		
 		InputStream is = getRequest(url);
-		if(is == null) 
-			return null;
+		
 		CubeDesc[] cubeDescs = null;
+		String jsonData = null;
 		try {
-			cubeDescs = jsonMapper.readValue(is, new TypeReference<CubeDesc[]>() {});
+			jsonData = readFromInputStream(is);
+			cubeDescs = jsonMapper.readValue(jsonData, new TypeReference<CubeDesc[]>() {});
 		} catch (IOException e) {
-			logger.error("Get cube description response from " + url + " parse with json error !", e);
-			return null;
+			throw createJsonError(url, jsonData, e);
 		} finally {
 			Utils.close(is);
 		}
 		
 		if(cubeDescs == null || cubeDescs.length == 0) {
-			logger.warn("Get cube desc from server is null");
-			return null;
+			throw cannotFindError("CUBE_DESC", cubeName);
 		}
 		CubeDesc cubeDesc = cubeDescs[0];
 		List<CubeMeasureMeta> measures = getMeasures(cubeDesc);
@@ -124,33 +128,31 @@ public class KylinGetMethod extends KylinMethod {
 		return new CubeDescMeta(cube, dimensions, measures);
 	}
 	
-	public CubeModelMeta getCubeModel(CubeMeta cube) {
+	public CubeModelMeta getCubeModel(CubeMeta cube) 
+			throws KylinClientException {
 		ProjectMeta project = cube.getProject();
 		String cubeName = cube.getCubeName();
 		String url = String.format("%s/kylin/api/model/%s", toBaseUrl(), cubeName);
 		InputStream is = getRequest(url);
-		if(is == null) 
-			return null;
 		
 		DataModelDesc modelDesc = null;
+		String jsonData = null;
 		try {
-			modelDesc = jsonMapper.readValue(is, new TypeReference<DataModelDesc>() {});
+			jsonData = readFromInputStream(is);
+			modelDesc = jsonMapper.readValue(jsonData, new TypeReference<DataModelDesc>() {});
 		} catch (IOException e) {
-			logger.error("Get all cubes response from " + url + " parse with json error !", e);
-			return null;
+			throw createJsonError(url, jsonData, e);
 		} finally {
 			Utils.close(is);
 		}
 		if(modelDesc == null) {
-			logger.warn("Get cube model from server is null");
-			return null;
+			throw cannotFindError("CUBE_MODEL", cubeName);
 		}
 		
 		String factTable = modelDesc.getFactTable();
 		TableMeta factTableMeta = project.getTable(factTable);
 		if(factTableMeta == null) {
-			logger.warn("Can not find fact table " + factTable + "in project " + project);
-			return null;
+			throw cannotFindError("CUBE_FACT_TABLE", cubeName);
 		}
 		String filter = modelDesc.getFilterCondition();
 		List<LookupTableMeta> lookupTables = getLookupTables(project, modelDesc, factTableMeta);
@@ -158,17 +160,17 @@ public class KylinGetMethod extends KylinMethod {
 		return new CubeModelMeta(cubeName, factTableMeta, lookupTables, filter);
 	}
 	
-	private List<CubeMeta> getCubeMetas(String url, ProjectMeta project) {
+	private List<CubeMeta> getCubeMetas(String url, ProjectMeta project) 
+			throws KylinClientException {
 		InputStream is = getRequest(url);
-		if(is == null) 
-			return null;
 		
 		List<CubeInstance> cubes = null;
+		String jsonData = null;
 		try {
-			cubes = jsonMapper.readValue(is, new TypeReference<List<CubeInstance>>() {});
+			jsonData = readFromInputStream(is);
+			cubes = jsonMapper.readValue(jsonData, new TypeReference<List<CubeInstance>>() {});
 		} catch (IOException e) {
-			logger.error("Get all cubes response from " + url + " parse with json error !", e);
-			return null;
+			throw createJsonError(url, jsonData, e);
 		} finally {
 			Utils.close(is);
 		}
@@ -199,14 +201,14 @@ public class KylinGetMethod extends KylinMethod {
 		return cubeMetas;
 	}
 	
-	private List<CubeMeasureMeta> getMeasures(CubeDesc cubeDesc) {
+	private List<CubeMeasureMeta> getMeasures(CubeDesc cubeDesc) 
+			throws KylinClientException {
 		List<CubeMeasureMeta> dimensions = new LinkedList<CubeMeasureMeta>();
 		for(MeasureDesc measure : cubeDesc.getMeasures()) {
 			String measureName = measure.getName();
 			FunctionDesc func = measure.getFunction();
 			if(func == null) {
-				logger.warn("Can not find function in measure " + measure);
-				continue;
+				throw cannotFindError("DIMENSION_FUNCTION_DESC", measureName);
 			}
 			String expression = func.getExpression();
 			String returnType = func.getReturnType();
@@ -217,15 +219,15 @@ public class KylinGetMethod extends KylinMethod {
 		return dimensions;
 	}
 	
-	private List<CubeDimensionMeta> getDimensions(ProjectMeta project, CubeDesc cubeDesc) {
+	private List<CubeDimensionMeta> getDimensions(ProjectMeta project, CubeDesc cubeDesc) 
+			throws KylinClientException {
 		List<CubeDimensionMeta> dimensions = new LinkedList<CubeDimensionMeta>();
 		for(DimensionDesc dim : cubeDesc.getDimensions()) {
 			String dimName = dim.getName();
 			String tableName = dim.getTable();
 			TableMeta tableMeta = project.getTable(tableName);
 			if(tableMeta == null) {
-				logger.warn("Table " + tableName + " in dimension " + dim + " not exist in " + project);
-				continue;
+				throw cannotFindError("TABLE_IN_PROJECT", tableName);
 			}
 			
 			String[] columns = null;
@@ -235,14 +237,12 @@ public class KylinGetMethod extends KylinMethod {
 				columns = dim.getColumn();
 			}
 			if(columns == null || columns.length == 0) {
-				logger.warn("Can not get column in dimension " + dim);
-				continue;
+				throw cannotFindError("COLUMN_IN_DIMENSION", dimName);
 			}
 			for(String column : columns) {
 				ColumnMeta meta = tableMeta.getColumn(column);
 				if(meta == null) {
-					logger.warn("Can not find column " + column + " in table " + tableMeta);
-					continue;
+					throw cannotFindError("DIMENSION_COLUMN_IN_TABLE", column);
 				}
 				dimensions.add(new CubeDimensionMeta(dimName, meta));
 			}
@@ -250,20 +250,19 @@ public class KylinGetMethod extends KylinMethod {
 		return dimensions;
 	}
 	
-	private List<LookupTableMeta> getLookupTables(ProjectMeta project, DataModelDesc modelDesc, TableMeta factTable) {
+	private List<LookupTableMeta> getLookupTables(ProjectMeta project, DataModelDesc modelDesc, TableMeta factTable) 
+			throws KylinClientException {
 		List<LookupTableMeta> lookupMetas = new LinkedList<LookupTableMeta>();
 		LookupDesc[] lookups = modelDesc.getLookups();
 		for(LookupDesc lookup : lookups) {
 			String tableName = lookup.getTable();
 			TableMeta tableMeta = project.getTable(tableName);
 			if(tableMeta == null) {
-				logger.warn("Can not find lookup table " + tableName + " in project " + project);
-				continue;
+				throw cannotFindError("LOOKUP_TABLE_IN_PROJECT", tableName);
 			}
 			JoinDesc joinDesc = lookup.getJoin();
 			if(joinDesc == null) {
-				logger.warn("Can not find join info in lookup table " + tableName);
-				continue;
+				throw cannotFindError("JOIN_DESC_IN_LOOKUP", tableName);
 			}
 			String joinType = joinDesc.getType();
 			String[] foreignKeys = joinDesc.getForeignKey();
@@ -272,15 +271,15 @@ public class KylinGetMethod extends KylinMethod {
 			List<ColumnMeta> primaryKeyColumns = tableMeta.getColumns(primaryKeys);
 			
 			if(foreignKeyColumns == null || primaryKeyColumns == null) {
-				logger.warn("Can not find foreign key or primary key for lookup table " + lookup + " in project " + project);
-				continue;
+				throw cannotFindError("PK_OR_FK_IN_LOOKUP", tableName);
 			}
 			lookupMetas.add(new LookupTableMeta(tableMeta, joinType, primaryKeyColumns, foreignKeyColumns));
 		}
 		return lookupMetas;
 	}
     
-    private InputStream getRequest(String url) {
+    private InputStream getRequest(String url) 
+    		throws KylinClientException {
     	if(this.httpClient == null)
     		return null;
     	
@@ -292,21 +291,26 @@ public class KylinGetMethod extends KylinMethod {
         try {
         	httpClient.executeMethod(get);
 		} catch (IOException e) {
-			logger.error("Get exception while execute get method to " + url, e);
-			return null;
+			throw executeMethodError(url, e);
 		}
 
         if (get.getStatusCode() != 200 && get.getStatusCode() != 201) {
-        	logger.error("Get url " + url + " get error code " + get.getStatusCode());
-        	return null;
+        	throw errorCodeError(url, get.getStatusCode());
         }
 
+        InputStream is = null;
         try {
-			return get.getResponseBodyAsStream();
+			is = get.getResponseBodyAsStream();
 		} catch (IOException e) {
-			logger.error("Get response of getting url " + url + " error !", e);
-			return null;
+			throw createInputStreamError(url);
 		}
+        if(is == null) {
+			throw createInputStreamError(url);
+		}
+        return is;
     }
     
+    protected String getMethodName() {
+    	return "GET";
+    }
 }

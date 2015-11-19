@@ -4,7 +4,9 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.kylin.client.meta.CubeDescMeta;
@@ -30,6 +32,7 @@ public class Kylin {
     private KylinPostMethod kylinPostMethod = null;
     private KylinDeleteMethod kylinDeleteMethod = null;
     private KylinJdbcMethod kylinJdbcMethod = null;
+    private List<ProjectMeta> projectCache = null;
 
 	public Kylin(String hostname, int port, String username, String password) {
 		httpClient = new HttpClient();
@@ -43,16 +46,16 @@ public class Kylin {
 		this(ip, port, DEFAULT_USERNAME, DEFAULT_PASSWORD);
 	}
 	
-	public List<ProjectMeta> getAllProject() {
-		return getAllProject(0, Integer.MAX_VALUE);
+	public List<ProjectMeta> getAllProjects() throws KylinClientException {
+		List<ProjectMeta> projects =  getAllProjects(0, Integer.MAX_VALUE);
+		this.projectCache = projects;
+		return projects;
 	}
 	
-	public List<ProjectMeta> getAllProject(int offset, int limit) {
+	public List<ProjectMeta> getAllProjects(int offset, int limit)
+			throws KylinClientException {
 		List<ProjectMeta> projectMetas = kylinGetMethod.getAllProject(offset, limit);
-		if(projectMetas == null) {
-			logger.warn("Can not get all projects !");
-			return null;
-		}
+		logger.info("Get " + projectMetas.size() + " projects");
 
 		for(ProjectMeta project : projectMetas) {
 			String projectName = project.getProjectName();
@@ -68,33 +71,72 @@ public class Kylin {
 		return projectMetas;
 	}
 	
-	public List<CubeMeta> getProjectCubes(ProjectMeta project) {
+	public List<CubeMeta> getProjectCubes(ProjectMeta project) 
+			throws KylinClientException {
 		return getProjectCubes(project, 0, Integer.MAX_VALUE);
 	}
 	
-	public CubeMeta getCubeByName(ProjectMeta project, String cubeName) {
+	public ProjectMeta getProjectByName(String projectName) 
+			throws KylinClientException {
+		boolean loaded = false;
+		if(this.projectCache == null) {
+			getAllProjects();
+			loaded = true;
+		}
+		
+		//cache中找不到再load一次
+		ProjectMeta ret = getProjectFromCache(projectName);
+		if(loaded || ret != null) {
+			return ret;
+		} else {
+			logger.info("Can not find project " + projectName + " in cache");
+			getAllProjects();
+		}
+		return getProjectFromCache(projectName);
+	}
+	
+	public ProjectMeta getProjectFromCache(String projectName) {
+		ProjectMeta ret = null;
+		if(this.projectCache == null) {
+			logger.warn("Get all projects return null");
+			return null;
+		}
+		for(ProjectMeta project : this.projectCache) {
+			if(project != null && project.getProjectName().equals(projectName)) {
+				ret = project;
+				break;
+			}
+		}
+		return ret;
+	}
+	public CubeMeta getCubeByName(ProjectMeta project, String cubeName) 
+			throws KylinClientException {
 		return kylinGetMethod.getCubeByName(project, cubeName);
 	}
 	
-	public List<CubeMeta> getProjectCubes(ProjectMeta project, int offset, int limit) {
+	public List<CubeMeta> getProjectCubes(ProjectMeta project, int offset, int limit) 
+			throws KylinClientException{
 		return kylinGetMethod.getProjectCubes(project, offset, limit);
 	}
 	
-	public CubeDescMeta getCubeDescription(CubeMeta cube) {
+	public CubeDescMeta getCubeDescription(CubeMeta cube) 
+			throws KylinClientException {
 		return kylinGetMethod.getCubeDescription(cube);
 	}
 	
-	public CubeModelMeta getCubeModel(CubeMeta cube) {
+	public CubeModelMeta getCubeModel(CubeMeta cube) 
+			throws KylinClientException {
 		return kylinGetMethod.getCubeModel(cube);
 	}
 	
-	public Connection getJdbcConnection(String projectName) {
+	public Connection getJdbcConnection(String projectName) 
+			throws KylinClientException {
 		return kylinJdbcMethod.getJdbcConnection(projectName);
 	}
 	
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
     	Kylin kylin = new Kylin("10.164.96.37", 7070);
-    	List<ProjectMeta> projects = kylin.getAllProject();
+    	List<ProjectMeta> projects = kylin.getAllProjects();
     	
     	for(ProjectMeta project : projects) {
     		System.out.println("Porject " + project.getProjectName() + " : \n\t" + project);

@@ -22,7 +22,6 @@ import java.util.regex.Pattern;
 import jline.ConsoleReader;
 import jline.History;
 
-import org.apache.kylin.client.ColorBuffer.ColorAttr;
 import org.apache.kylin.client.meta.ColumnMeta;
 import org.apache.kylin.client.meta.CubeDescMeta;
 import org.apache.kylin.client.meta.CubeDimensionMeta;
@@ -33,33 +32,39 @@ import org.apache.kylin.client.meta.LookupTableMeta;
 import org.apache.kylin.client.meta.ProjectMeta;
 import org.apache.kylin.client.meta.TableMeta;
 import org.apache.kylin.client.method.Utils;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-
+import org.apache.log4j.Logger;
 
 public class ClientDriver {
+	private static String SHOW_PROJECTS = "SHOW PROJECTS";
+	private static String SHOW_PROJECTS_DESC = "Show all projects in kylin";
+	private static String USE_PROJECT = "USE ${PROJECT}";
+	private static String USE_PROJECT_DESC = "Switch to named project";
+	private static String SHOW_CUBES = "SHOW CUBES";
+	private static String SHOW_CUBES_DESC = "Show all cubes in current project";
+	private static String DESCRIBE_CUBE = "DESCRIBE ${CUBE}";
+	private static String DESCRIBE_CUBE_DESC = "Describe named cube metadata, including model, dimensions and measures";
+	private static String SELECT = "SELECT xxx";
+	private static String SELECT_DESC = "Execute query sql with dimensions and measures";
+
+/*	
+	private static String SELECT = "select [[distinct](dimension)], [aggerate(measure)] from FactTableName [inner/left/right join] LookupTablebName where "
+		    + "... group by dimension [having aggerate(measure)] [order by aggerate(measure)] [asc|desc] [limit n] [offset m]";
+*/
+	private static Pattern SHOW_DATABASES_PATTERN = Pattern.compile("(?i)\\s*SHOW\\s+PROJECTS");
+	private static Pattern USE_PROJECT_PATTERN = Pattern.compile("(?i)\\s*USE\\s+(.*)");
+	private static Pattern SHOW_CUBES_PATTERN = Pattern.compile("(?i)\\s*SHOW\\s+CUBES");
+	private static Pattern DESCRIBE_CUBE_PATTERN = Pattern.compile("(?i)\\s*DESCRIBE\\s+(.*)");
+	private static Pattern SELECT_PATTERN = Pattern.compile("(?i)" + "\\s*SELECT\\s+.*");
+	
+	private static String PROMPT_DEFAULT = "kylin";
+	private Logger logger = Logger.getLogger(ClientDriver.class);
+	
 	private Config config;
 	private Connection connection = null;
 	private ProjectMeta currentProject = null;
-	private static PrintStream resultOut = System.out;
-	private static PrintStream otherOut = System.err;
+	private static PrintStream ERROR_OUT = System.err;
 	
 	private Kylin kylin = null;
-	
-	private static String SHOW_DATABASES = "SHOW PROJECTS";
-	private static String USE_PROJECT = "USE ${PROJECT}";
-	private static String SHOW_CUBES = "SHOW CUBES";
-	private static String DESCRIBE_CUBE = "DESCRIBE ${CUBE}";
-	private static String SELECT = "select [[distinct](dimension)], [aggerate(measure)] from FactTableName [inner/left/right join] LookupTablebName where "
-		                + "... group by dimension [having aggerate(measure)] [order by aggerate(measure)] [asc|desc] [limit n] [offset m]";
-	
-	private static Pattern SHOW_DATABASES_PATTERN = Pattern.compile("(?i)SHOW\\s+PROJECTS");
-	private static Pattern USE_PROJECT_PATTERN = Pattern.compile("(?i)USE\\s+(.*)");
-	private static Pattern SHOW_CUBES_PATTERN = Pattern.compile("(?i)SHOW\\s+CUBES");
-	private static Pattern DESCRIBE_CUBE_PATTERN = Pattern.compile("(?i)DESCRIBE\\s+(.*)");
-	private static Pattern SELECT_PATTERN = Pattern.compile("(?i)" + "SELECT\\s+.*");
-	
-	private static String PROMPT_DEFAULT = "kylin";
 	
 	public ClientDriver(Config conf) {
 		this.config = conf;
@@ -83,7 +88,7 @@ public class ClientDriver {
 	
 	private ConsoleReader getReader() {
 	    try {
-	    	ConsoleReader reader = new ConsoleReader(System.in, new PrintWriter(System.out));
+	    	ConsoleReader reader = new ConsoleReader(System.in, new PrintWriter(ERROR_OUT));
 			reader.setBellEnabled(false);
 		    final String HISTORYFILE = ".hivehistory";
 		    String historyDirectory = System.getProperty("user.home");
@@ -91,14 +96,13 @@ public class ClientDriver {
 		    	String historyFile = historyDirectory + File.separator + HISTORYFILE;
 		    	reader.setHistory(new History(new File(historyFile)));
 		    } else {
-		    	System.err.println("WARNING: Directory for Hive history file: " + historyDirectory +
+		    	logger.warn("WARNING: Directory for Hive history file: " + historyDirectory +
                            " does not exist.   History will not be available during this session.");
 		    }
 		    return reader;
 	    } catch (Exception e) {
-	    	System.err.println("WARNING: Encountered an error while trying to initialize Hive's " +
-	    			"history file.  History will not be available during this session.");
-	    	System.err.println(e.getMessage());
+	    	logger.warn("WARNING: Encountered an error while trying to initialize Hive's " +
+	    			"history file.  History will not be available during this session.", e);
 	    }
 	    
 	    return null;
@@ -109,12 +113,18 @@ public class ClientDriver {
 		String initProject = this.config.getDatabase();
 		if(initProject != null) {
 			boolean succ = createProjectConnection(initProject);
-			if(! succ) {
-				otherOut.println("Create Connection to project " + initProject + " error !");
+			if(!succ) {
+				logger.warn("Create jdbc connection to initialize project " + initProject);
+				ERROR_OUT.println("Create Connection to project " + initProject + " error !");
 			}
 		}
 		if(connection == null && currentProject != null) {
-			connection = kylin.getJdbcConnection(currentProject.getProjectName());
+			String projectName = currentProject.getProjectName();
+			try {
+				connection = kylin.getJdbcConnection(projectName);
+			} catch (KylinClientException e) {
+				logger.warn("Create init connection for project " + projectName);
+			}
 		}
 		
 		if(config.getExecuteSql() != null) {
@@ -157,7 +167,7 @@ public class ClientDriver {
 				}
 			}
 		} catch (IOException e) {
-			e.printStackTrace(otherOut);
+			logger.error("Fetch input from console reader error" , e);
 			return -1;
 		}
 		return ret;
@@ -180,14 +190,14 @@ public class ClientDriver {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			logger.error("Read sql from file " + fileName + " error", e);
 			return -1;
 		} finally {
 			if(reader != null)
 				try {
 					reader.close();
 				} catch (IOException e) {
-					e.printStackTrace();
+					logger.error("Close file " + fileName + " error", e);
 					return -1;
 				}
 		}
@@ -206,6 +216,7 @@ public class ClientDriver {
 		if(cmd.isEmpty())
 			return 0;
 		
+		logger.info("Process sql : " + cmd);
 		if(cmd.equalsIgnoreCase("quit") || cmd.equalsIgnoreCase("exit")) {
 			System.exit(0);
 		}
@@ -224,7 +235,8 @@ public class ClientDriver {
 		
 		if(!executed) {
 			if(currentProject == null) {
-				System.err.println("No project selected!");
+				logger.warn("Execute sql " + cmd + " while no project selected");
+				ERROR_OUT.println("No project selected!");
 				return -1;
 			}
 			if(SELECT_PATTERN.matcher(cmd).matches()) {
@@ -234,36 +246,47 @@ public class ClientDriver {
 			} else if(SHOW_CUBES_PATTERN.matcher(cmd).matches()) {
 				ret = processShowCubesCmd(cmd);
 			} else {
-				System.err.println("Not Support SQL : " + cmd);
-				printErrorMessage();
+				logger.warn("Not Support SQL : " + cmd);
+				ERROR_OUT.println("Not Support SQL : " + cmd);
+				printHelpMessage();
 				ret = -1;
 			}
 		}
 		if(ret >= 0) {
 			long end = System.currentTimeMillis();
-			System.out.println("OK");
-			System.out.println(String.format("Time taken: %.3f seconds, Fetched: %d row(s)", 
+			ERROR_OUT.println("OK");
+			ERROR_OUT.println(String.format("Time taken: %.3f seconds, Fetched: %d row(s)", 
 					(end - start) / (double)1000, ret));
 			return 0;
 		}
 		return -1;
 	}
 	
-	private void printErrorMessage() {
+	private void printHelpMessage() {
+		List<String> headers = Arrays.asList("COMMAND", "INSTRUCTION");
+		List<List<String>> datas = Arrays.asList(
+				Arrays.asList(SHOW_PROJECTS, SHOW_PROJECTS_DESC), 
+				Arrays.asList(USE_PROJECT, USE_PROJECT_DESC),
+				Arrays.asList(SHOW_CUBES, SHOW_CUBES_DESC),
+				Arrays.asList(DESCRIBE_CUBE, DESCRIBE_CUBE_DESC),
+				Arrays.asList(SELECT, SELECT_DESC));
 		
+		Utils.printResultWithTable(headers, datas, 2);
 	}
 	
 	public List<String> supportSql() {
-		return Arrays.asList(SHOW_DATABASES, USE_PROJECT, SHOW_CUBES, DESCRIBE_CUBE, SELECT);
+		return Arrays.asList(SHOW_PROJECTS, USE_PROJECT, SHOW_CUBES, DESCRIBE_CUBE, SELECT);
 	}
 	
 	private boolean createProjectConnection(String projectName) {
 		ProjectMeta formerProject = currentProject;
 		//切换到相同的project
 		if(currentProject == null || !currentProject.getProjectName().equalsIgnoreCase(projectName)) {
-			List<ProjectMeta> projects = kylin.getAllProject();
-			if(projects == null) {
-				otherOut.println("Get Projects error !");
+			List<ProjectMeta> projects = null;
+			try {
+				projects = kylin.getAllProjects();
+			} catch (KylinClientException e) {
+				logger.error("Fetch all project error", e);
 				return false;
 			}
 			boolean found = false;
@@ -275,7 +298,7 @@ public class ClientDriver {
 				}
 			}
 			if(!found) {
-				otherOut.println("Can not find project " + projectName);
+				logger.error("Can not find project " + projectName);
 				return false;
 			}
 		}
@@ -291,13 +314,15 @@ public class ClientDriver {
 			return connection;
 		}
 		if(currentProject == null) {
-			System.err.println("No project selected!");
+			logger.warn("No project selected while create new jdbc connection");
 			return null;
 		}
 		String currentProjectName = currentProject.getProjectName();
-		Connection conn = kylin.getJdbcConnection(currentProjectName);
-		if(conn == null) {
-			System.err.println("Create connection to " + currentProjectName + " failed !");
+		Connection conn;
+		try {
+			conn = kylin.getJdbcConnection(currentProjectName);
+		} catch (KylinClientException e) {
+			logger.error("Create jdbc connection to project " + currentProjectName);
 			return null;
 		}
 		this.connection = conn;
@@ -316,7 +341,7 @@ public class ClientDriver {
 			state = conn.createStatement();
 			result = state.executeQuery(cmd);
 			ResultSetMetaData meta = result.getMetaData();
-            List<String> headers = extractCloumns(cmd);
+            List<String> headers = Utils.extractCloumns(cmd);
             int columnSize = meta.getColumnCount();
             if(headers == null || headers.size() != columnSize) {
             	headers = new ArrayList<String>(columnSize);
@@ -333,9 +358,11 @@ public class ClientDriver {
                 }
                 datas.add(data);
             }
-            return printResultWithTable(headers, datas);
+            return Utils.printResultWithTable(headers, datas, 0);
 		} catch (SQLException e) {
-			otherOut.println(e.getMessage());
+			logger.error("Execute SELECT SQL " + cmd + " error", e);
+			//output error message to user
+			ERROR_OUT.println(e.getMessage());
 			return -1;
 		} finally {
 			Utils.close(result, state, null);
@@ -348,13 +375,24 @@ public class ClientDriver {
 			return -1;
 		String cubeName = matcher.group(matcher.groupCount());
 		
-		CubeMeta cubeMeta = kylin.getCubeByName(currentProject, cubeName);
-		if(cubeMeta == null) {
-			otherOut.println("Can not find cube " + cubeName + " in project " + currentProject.getProjectName());
+		CubeMeta cubeMeta;
+		try {
+			cubeMeta = kylin.getCubeByName(currentProject, cubeName);
+		} catch (KylinClientException e) {
+			logger.error("Can not find cube " + cubeName + " in project " + 
+					currentProject.getProjectName());
 			return -1;
 		}
-		CubeModelMeta cubeModel = kylin.getCubeModel(cubeMeta);
-		CubeDescMeta cubeDesc = kylin.getCubeDescription(cubeMeta);
+		CubeModelMeta cubeModel;
+		CubeDescMeta cubeDesc;
+		try {
+			cubeModel = kylin.getCubeModel(cubeMeta);
+			cubeDesc = kylin.getCubeDescription(cubeMeta);
+		} catch (KylinClientException e) {
+			logger.error("Fetch cube model and desc of cube " + cubeMeta.getCubeName() + 
+					"error", e);
+			return -1;
+		}
 		
 		int count = 0;
 		count += printCubeModel(cubeModel);
@@ -363,21 +401,21 @@ public class ClientDriver {
 	}
 	
 	private int printCubeModel(CubeModelMeta cubeModel) {
-		System.out.println("Cube Model : ");
+		ERROR_OUT.println("Cube Model : ");
 		List<String> headers = Arrays.asList("TABLE", "TYPE", "JOIN", "PK", "FK");
-		List<List<String>> data = new LinkedList<List<String>>();
+		List<List<String>> datas = new LinkedList<List<String>>();
 		if(cubeModel == null) {
-			return printResult(headers, data);
+			return Utils.printResultWithTable(headers, datas, 0);
 		}
 		TableMeta factTable = cubeModel.getFactTable();
 		
-		data.add(Arrays.asList(factTable.getFullTableName(), "FACT", "NULL", "NULL", "NULL"));
+		datas.add(Arrays.asList(factTable.getFullTableName(), "FACT", "NULL", "NULL", "NULL"));
 		for(LookupTableMeta lookup : cubeModel.getLookupTables()) {
-			data.add(Arrays.asList(lookup.getTable().getFullTableName(), "DIMENSION", lookup.getType().toUpperCase(),
+			datas.add(Arrays.asList(lookup.getTable().getFullTableName(), "DIMENSION", lookup.getType().toUpperCase(),
 					getColumnsString(lookup.getPrimaryKeys()).toUpperCase(), getColumnsString(lookup.getForeignKeys()).toUpperCase()));
 		}
 		
-		return printResult(headers, data);
+		return Utils.printResultWithTable(headers, datas, 0);
 	}
 	
 	private String getColumnsString(List<ColumnMeta> columns) {
@@ -397,56 +435,61 @@ public class ClientDriver {
 		if(cubeDesc == null)
 			return 0;
 		
-		System.out.println("\nCube Dimensions : ");
+		ERROR_OUT.println("\nCube Dimensions : ");
 		List<String> headers = Arrays.asList("NAME", "TABLE", "COLUMN", "TYPE");
-		List<List<String>> data = new LinkedList<List<String>>();
+		List<List<String>> datas = new LinkedList<List<String>>();
 		for(CubeDimensionMeta dim : cubeDesc.getDimensions()) {
-			data.add(Arrays.asList(dim.getName(), dim.getColumn().getTable().getFullTableName(), dim.getColumn().getName(), 
+			datas.add(Arrays.asList(dim.getName(), dim.getColumn().getTable().getFullTableName(), dim.getColumn().getName(), 
 					dim.getColumn().getType()));
 		}
 		int count = 0;
-		count += printResult(headers, data);
-		System.out.println("\nCube Measures : ");
+		count += Utils.printResultWithTable(headers, datas, 0);
+		ERROR_OUT.println("\nCube Measures : ");
 		headers = Arrays.asList("NAME", "EXPRESSION", "PARAMETER", "TYPE");
-		data = new LinkedList<List<String>>();
+		datas = new LinkedList<List<String>>();
 		
 		for(CubeMeasureMeta measure : cubeDesc.getMeasures()) {
-			data.add(Arrays.asList(measure.getName(), measure.getExpression(), measure.getValue(), measure.getReturnType()));
+			datas.add(Arrays.asList(measure.getName(), measure.getExpression(), measure.getValue(), measure.getReturnType()));
 		}
-		count += printResult(headers, data);
+		count += Utils.printResultWithTable(headers, datas, 0);
 		return count;
 	}
 	
 	private int processShowCubesCmd(String cmd) {
-		List<CubeMeta> cubes = kylin.getProjectCubes(currentProject);
-		if(cubes == null) {
-			otherOut.println("Get Cubes in project " + currentProject.getProjectName() + " error!");
+		List<CubeMeta> cubes;
+		try {
+			cubes = kylin.getProjectCubes(currentProject);
+		} catch (KylinClientException e) {
+			logger.error("Fetch cubes of project " + currentProject.getProjectName() + 
+					" error", e);
 			return -1;
 		}
 		List<String> headers = Arrays.asList("NAME", "PROJECT", "ENABLE", "SIZE", "START_TIME", "END_TIME");
-		List<List<String>> data = new LinkedList<List<String>>();
+		List<List<String>> datas = new LinkedList<List<String>>();
 		for(CubeMeta cube : cubes) {
-			data.add(Arrays.asList(cube.getCubeName(), currentProject.getProjectName(), String.valueOf(cube.isEnable()).toUpperCase(), 
+			datas.add(Arrays.asList(cube.getCubeName(), currentProject.getProjectName(), String.valueOf(cube.isEnable()).toUpperCase(), 
 					cube.getCubeSizeKb() + "KB", String.valueOf(cube.getRangeStart()), String.valueOf(cube.getRangeEnd())));
 		}
 		
-		return printResult(headers, data);
+		return Utils.printResultWithTable(headers, datas, 0);
 	}
 	
 	private int processShowDatabasesCmd(String cmd) {
-		List<ProjectMeta> projects = kylin.getAllProject();
-		if(projects == null) {
-			otherOut.println("Get Projects error !");
+		List<ProjectMeta> projects;
+		try {
+			projects = kylin.getAllProjects();
+		} catch (KylinClientException e) {
+			logger.error("Fetch all projects error", e);
 			return -1;
 		}
 		List<String> headers = Arrays.asList("PROJECT", "HIVE", "DESCRIPTION");
-		List<List<String>> data = new ArrayList<List<String>>(projects.size());
+		List<List<String>> datas = new ArrayList<List<String>>(projects.size());
 		
 		for(ProjectMeta project : projects) {
-			data.add(Arrays.asList(project.getProjectName(), project.getHiveName(), project.getDescription()));
+			datas.add(Arrays.asList(project.getProjectName(), project.getHiveName(), project.getDescription()));
 		}
 		
-		return printResult(headers, data);
+		return Utils.printResultWithTable(headers, datas, 0);
 	}
 	
 	private int processUseProjectCmd(String cmd) {
@@ -456,193 +499,13 @@ public class ClientDriver {
 		String projectName = matcher.group(matcher.groupCount());
 		String from = currentProject == null ? "null" : currentProject.getProjectName();
 		if(createProjectConnection(projectName)) {
-			System.out.println("Change Current Project from " + from + " to " + projectName);
+			ERROR_OUT.println("Change Current Project from " + from + " to " + projectName);
 			return 0;
 		} else {
 			return -1;
 		}
 	}
 	
-	private static int printResultWithTable(List<String> headers, List<List<String>> datas) {
-		int SPACE_BEFORE_AND_AFTER = 1;
-        List<Integer> delimIndex = new ArrayList<Integer>(headers.size() + 1);
-        List<Integer> columnMaxLength = new ArrayList<Integer>(headers.size());
-        delimIndex.add(0);
-        int index = 0;
-        for(int i = 0 ; i < headers.size() ; ++ i) {
-        	if(headers.get(i) == null)
-        		headers.set(i, "NULL");
-        	String header = headers.get(i);
-
-            index += (SPACE_BEFORE_AND_AFTER * 2 + length(header) + 1);
-        	delimIndex.add(index);
-        	columnMaxLength.add(length(header));
-        }
-        
-        delimIndex.set(0, 0);
-        for(List<String> data : datas) {
-        	index = 0;
-        	for(int i = 0 ; i < delimIndex.size() - 1 ; ++ i) {
-        		if(data.get(i) == null)
-        			data.set(i, "NULL");
-        		
-        		int dataLen = length(data.get(i));
-        		if(dataLen > columnMaxLength.get(i)) {
-        			columnMaxLength.set(i, dataLen);
-        		}
-        		index = delimIndex.get(i) + SPACE_BEFORE_AND_AFTER * 2 + columnMaxLength.get(i) + 1;
-        		if(index > delimIndex.get(i + 1)) {
-        			delimIndex.set(i + 1, index);
-        		}
-        	}
-        }
-        StringBuffer spaces = new StringBuffer();
-        for(int i = 0 ; i < delimIndex.get(delimIndex.size() - 1) ; ++ i) {
-            spaces.append(" ");
-        }
-        String spaceStr = spaces.toString();
-        
-        String headerLine = getHeaderLine(delimIndex);
-        resultOut.println(headerLine);
-        String headerDataLine = getDataLine(headers, delimIndex, spaceStr);
-        resultOut.println(headerDataLine);        
-        resultOut.println(headerLine);
-        for(List<String> data : datas) {
-        	String dataLine = getDataLine(data, delimIndex, spaceStr);
-        	resultOut.println(dataLine);
-        }
-        resultOut.println(headerLine);
-        
-        return datas.size() - 1;
-	}
-	
-    public static List<String> extractCloumns(String sql) {
-    	String sample = sql.toUpperCase();
-    	sample = sample.trim();
-    	if(!sample.startsWith("SELECT")) {
-    		return null;
-    	}
-    	int firstFromIndex = sample.indexOf("FROM");
-    	if(firstFromIndex < 0) {
-    		return null;
-    	}
-      
-    	String arrays[]= sample.substring("SELECT".length(), firstFromIndex).split(",");
-
-    	//需要考虑带不带AS等情况
-        List<String> columns=new ArrayList<String>();
-        for(String d:arrays){
-            String name[]=  d.split("\\s"); //按空白分隔符划分
-            //防止只有一个空格的情况
-            if(name.length < 1) 
-            	continue;
-            columns.add(name[name.length-1]);
-        }
-        //不能不指定一列
-        if(columns.isEmpty()) {
-        	return null;
-        }
-        return columns;
-    }
-	
-	public static String getDataLine(List<String> data, List<Integer> indes, String spaces) {
-		StringBuffer sb = new StringBuffer();
-		for(int i = 0 ; i < indes.size() - 1; ++ i) {
-			sb.append("|");
-			int gap = indes.get(i + 1) - indes.get(i) - 1 - length(data.get(i));
-			int headSpace = gap / 2;
-			int tailSpace = gap - headSpace;
-			sb.append(spaces.substring(0, headSpace)).append(data.get(i)).append(spaces.substring(0, tailSpace));
-		}
-		sb.append("|");
-		return sb.toString();
-	}
-	
-	public static String getHeaderLine(List<Integer> indes) {
-		StringBuffer sb = new StringBuffer();
-		for(int i = 0 ; i < indes.size() - 1; ++ i) {
-			sb.append("+");
-			for(int j = indes.get(i) + 1 ; j < indes.get(i + 1) ; ++ j) {
-				sb.append("-");
-			}
-		}
-		sb.append("+");
-		return sb.toString();
-	}
-	
-    //打印结果，每一行的每一列之间空四个格
-    private int printResult(List<String> headers, List<List<String>> datas) {
-        int SPACE_GAP_COUNT = 4;
-        List<Integer> columnLength = new ArrayList<Integer>(headers.size());
-        int index = 0;
-        for(String header : headers) {
-            columnLength.add(index);
-            index += (SPACE_GAP_COUNT + length(header));
-        }
-        
-        for(List<String> data : datas) {
-            index = 0;
-            for(int i = 0 ; i < columnLength.size() ; ++ i) {
-                if(i > 0)
-                    index = columnLength.get(i - 1) + SPACE_GAP_COUNT + length(data.get(i - 1));
-                    
-                if(index > columnLength.get(i)) {
-                    columnLength.set(i, index);
-                }
-                if(data.get(i) == null) {
-                    data.set(i, "NULL");
-                }
-            }
-        }
-        StringBuffer spaces = new StringBuffer();
-        for(int i = 0 ; i < columnLength.get(columnLength.size() - 1) ; ++ i) {
-            spaces.append(" ");
-        }
-        
-        StringBuffer line = new StringBuffer();
-        for(int i = 0 ; i < columnLength.size() ; ++ i) {
-            int gap = 0;
-            if(i > 0) {
-                gap = columnLength.get(i) - (columnLength.get(i - 1) + length(headers.get(i - 1)));
-            }
-            if(gap > 0) {
-                line.append(spaces.subSequence(0, gap));
-            }
-            line.append(headers.get(i));
-        }
-        resultOut.println(line);
-        
-        for(List<String> data : datas) {
-            line = new StringBuffer();
-            for(int i = 0 ; i < columnLength.size() ; ++ i) {
-                int gap = 0;
-                if(i > 0) {
-                    gap = columnLength.get(i) - (columnLength.get(i - 1) + length(data.get(i - 1)));
-                }
-                if(gap > 0) {
-                    line.append(spaces.subSequence(0, gap));
-                }
-                line.append(data.get(i));
-            }
-            resultOut.println(line);
-        }
-        return datas.size();
-    }
-    
-    private static int length(String str) {
-        int len = str.length();
-        int sumLen = 0;
-        for(int i = 0 ; i < len ; ++ i) {
-        	char ch = str.charAt(i);
-        	if((int)ch > 0 && (int)ch < 128) {
-        		sumLen ++;
-        	} else {
-        		sumLen += 2;
-        	}
-        }
-        return sumLen;
-    }
-    
     public static void main(String[] args) {
     	String str = "use HELLO";
     	Matcher matcher = USE_PROJECT_PATTERN.matcher(str);
@@ -655,7 +518,7 @@ public class ClientDriver {
     			Arrays.asList("123", "345", "456"), 
     			Arrays.asList("llllllllll","yyyyyyyyyyyy", "TTTTTTTTTTTT"));
     	
-    	int ret = printResultWithTable(headers, datas);
+    	int ret = Utils.printResultWithTable(headers, datas, 4);
     	System.out.println("lines " + ret);
     	
     	String test = "你好";

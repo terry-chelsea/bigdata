@@ -1,6 +1,5 @@
 package org.apache.kylin.client;
 
-import java.util.Arrays;
 import java.util.Properties;
 
 import org.apache.commons.cli.CommandLine;
@@ -10,10 +9,8 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.log4j.Logger;
 
 public class OptionsProcessor {
-    private static Logger logger = Logger.getLogger(OptionsProcessor.class);
     private final Options options = new Options();
     private CommandLine commandLine;
     

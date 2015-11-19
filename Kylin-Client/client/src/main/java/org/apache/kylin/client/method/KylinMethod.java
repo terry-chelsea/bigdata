@@ -1,18 +1,20 @@
 package org.apache.kylin.client.method;
 
 import java.io.IOException;
+import java.io.InputStream;
 
 import javax.xml.bind.DatatypeConverter;
 
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.HttpMethodBase;
+import org.apache.kylin.client.KylinClientException;
 import org.apache.kylin.jdbc.Driver;
 import org.apache.log4j.Logger;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class KylinMethod {
+public abstract class KylinMethod {
 	private Logger logger = Logger.getLogger(KylinMethod.class);
 	
 	protected String hostname;
@@ -57,5 +59,56 @@ public class KylinMethod {
 		}
     	return response;
     }
+    
+    protected String readFromInputStream(InputStream is) throws IOException {
+    	StringBuffer sb = new StringBuffer();
+    	byte[] bytes = new byte[4096];
+    	int readLen = -1;
+    	while((readLen = is.read(bytes)) > 0) {
+    		String temp = new String(bytes, 0, readLen, "UTF-8");
+    		sb.append(temp);
+    	}
+    	
+    	logger.debug("Read json data : " + sb);
+    	return sb.toString();
+    }
+    
+    protected KylinClientException createInputStreamError(String url) {
+		String errorMsg = "Create " + getMethodName() + " Method InputStream to " + url + " error";
+		logger.error(errorMsg);
+		return new KylinClientException(errorMsg);
+	}
+	
+	protected KylinClientException createJsonError(String url, String data, Throwable t) {
+		String errorMsg = "Deserialize " + getMethodName() + " Method InputStream to " + url + " error";
+		if(data != null) {
+			errorMsg += ", Input Data : " + data;
+		}
+		logger.error(errorMsg, t);
+		return new KylinClientException(errorMsg, t);
+	}
+	
+	protected KylinClientException cannotFindError(String type, String name) {
+		String errorMsg = "Can not find " + type + " named " + name;
+		logger.error(errorMsg);
+		return new KylinClientException(errorMsg);
+	}
+	
+	protected KylinClientException errorCodeError(String url, int code) {
+		String errorMsg = "Error code From " + getMethodName() + " Method to " +
+				url + ", Code " + code;
+		logger.error(errorMsg);
 
+		return new KylinClientException(errorMsg);
+	}
+	
+	protected KylinClientException executeMethodError(String url, Throwable t) {
+		String errorMsg = "Exception happen while executing " + getMethodName() + 
+				" Method to " + url;
+		logger.error(errorMsg, t);
+
+		return new KylinClientException(errorMsg, t);
+	}
+	
+	protected abstract String getMethodName();
 }

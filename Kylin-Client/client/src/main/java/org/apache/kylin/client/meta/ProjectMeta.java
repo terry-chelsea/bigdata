@@ -11,7 +11,7 @@ public class ProjectMeta {
 	private String description;
 	//which hive the project used as source data
 	private String hiveName;
-	private Map<String, TableMeta> tableMap = new HashMap<String, TableMeta>();;
+	private Map<String, TableMeta> tableMap = new HashMap<String, TableMeta>();
 	
 	public ProjectMeta(String projectName, String description, String hiveName) {
 		this.projectName = projectName;

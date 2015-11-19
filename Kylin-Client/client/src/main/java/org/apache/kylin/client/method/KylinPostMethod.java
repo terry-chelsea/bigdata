@@ -31,4 +31,9 @@ public class KylinPostMethod extends KylinMethod {
         }
         return true;
     }
+
+	@Override
+	protected String getMethodName() {
+		return "POST";
+	}
 }

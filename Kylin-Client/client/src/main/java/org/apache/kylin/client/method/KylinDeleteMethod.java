@@ -11,4 +11,9 @@ public class KylinDeleteMethod extends KylinMethod {
 		super(hostname, port, username, password);
 		this.httpClient = httpClient;
 	}
+
+	@Override
+	protected String getMethodName() {
+		return "DELETE";
+	}
 }
