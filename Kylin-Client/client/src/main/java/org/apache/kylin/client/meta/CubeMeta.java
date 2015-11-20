@@ -6,16 +6,17 @@ public class CubeMeta {
 	private boolean enable;
 	private long createTime;
 	private long retentionRange;
+	private boolean partition;
 	private String projectName;
 	private long cubeSizeKb;
-	private long rangeStart;
-	private long rangeEnd;
+	private String rangeStart;
+	private String rangeEnd;
 	
 	private ProjectMeta project;
 	
 	public CubeMeta(String cubeName, boolean enable,
 			long createTime, long retentionRange, String projectName,
-			long cubeSizeKb, long rangeStart, long rangeEnd) {
+			long cubeSizeKb, String rangeStart, String rangeEnd) {
 		super();
 		this.cubeName = cubeName;
 		this.enable = enable;
@@ -63,17 +64,24 @@ public class CubeMeta {
 	public void setCubeSizeKb(long cubeSizeKb) {
 		this.cubeSizeKb = cubeSizeKb;
 	}
-	public long getRangeStart() {
+	public String getRangeStart() {
 		return rangeStart;
 	}
-	public void setRangeStart(long rangeStart) {
+	public void setRangeStart(String rangeStart) {
 		this.rangeStart = rangeStart;
 	}
-	public long getRangeEnd() {
+	public String getRangeEnd() {
 		return rangeEnd;
 	}
-	public void setRangeEnd(long rangeEnd) {
+	public void setRangeEnd(String rangeEnd) {
 		this.rangeEnd = rangeEnd;
+	}
+	
+	public boolean isPartition() {
+		return partition;
+	}
+	public void setPartition(boolean partition) {
+		this.partition = partition;
 	}
 	@Override
 	public String toString() {

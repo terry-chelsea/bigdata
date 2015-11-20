@@ -28,6 +28,7 @@ import org.apache.kylin.metadata.model.JoinDesc;
 import org.apache.kylin.metadata.model.LookupDesc;
 import org.apache.kylin.metadata.model.MeasureDesc;
 import org.apache.kylin.metadata.model.ParameterDesc;
+import org.apache.kylin.metadata.model.PartitionDesc;
 import org.apache.kylin.metadata.model.SegmentStatusEnum;
 import org.apache.kylin.metadata.project.ProjectInstance;
 import org.apache.log4j.Logger;
@@ -68,7 +69,10 @@ public class KylinGetMethod extends KylinMethod {
 			if(project == null)
 				continue;
 			
-			projectMetas.add(new ProjectMeta(project.getName(), project.getDescription(), "NULL"));
+			String hiveName = (String) Utils.checkMethod(ProjectInstance.class, project, "getHiveName");
+			if(hiveName == null)
+				hiveName = "NULL";
+			projectMetas.add(new ProjectMeta(project.getName(), project.getDescription(), hiveName));
 		}
 		return projectMetas;
 	}
@@ -156,7 +160,11 @@ public class KylinGetMethod extends KylinMethod {
 		}
 		String filter = modelDesc.getFilterCondition();
 		List<LookupTableMeta> lookupTables = getLookupTables(project, modelDesc, factTableMeta);
-
+		
+		PartitionDesc partition = modelDesc.getPartitionDesc();
+		if(partition != null && partition.getPartitionDateColumn() != null && !partition.getPartitionDateColumn().isEmpty()) {
+			
+		}
 		return new CubeModelMeta(cubeName, factTableMeta, lookupTables, filter);
 	}
 	
@@ -188,13 +196,22 @@ public class KylinGetMethod extends KylinMethod {
 			List<CubeSegment> segments = cube.getSegment(SegmentStatusEnum.READY);
 			long rangeStart = 0l;
 			long rangeEnd = 0l;
+			String startTime = "NOT YET BUILD";
+			String endTime = "NOT YET BUILD";	
 			if(!segments.isEmpty()) {
 				rangeStart = segments.get(0).getDateRangeStart();
 				rangeEnd = segments.get(segments.size() - 1).getDateRangeEnd();
+				if( rangeStart < Utils.getInitTime() && rangeEnd > System.currentTimeMillis() && segments.size() == 1) {
+					startTime = "ALL TIME";
+					endTime = "ALL TIME";
+				} else {
+					startTime = Utils.formatToDateStr(rangeStart);
+					endTime = Utils.formatToDateStr(rangeEnd);
+				}
 			}
 			
 			CubeMeta cubeMeta = new CubeMeta(cubeName, enable, createTime, retentionRange, project.getProjectName(),
-					cubeSize, rangeStart, rangeEnd);
+					cubeSize, startTime, endTime);
 			cubeMeta.setProjectName(project);
 			cubeMetas.add(cubeMeta);
 		}

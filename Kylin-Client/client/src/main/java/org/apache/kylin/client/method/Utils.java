@@ -5,12 +5,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
@@ -18,7 +24,9 @@ import org.apache.log4j.Logger;
 
 public class Utils {
     private static Logger logger = Logger.getLogger(Utils.class);
-    
+	public static final String DEFAULT_DATETIME_PATTERN_WITHOUT_MILLISECONDS = "yyyy-MM-dd HH:mm:ss";
+	public static final String CURRENT_TIMEZONE = "GMT+8";
+
     public static void close(ResultSet resultSet, Statement stat, Connection conn) {
         if (resultSet != null)
             try {
@@ -237,5 +245,33 @@ public class Utils {
         	return null;
         }
         return columns;
+    }
+    
+    public static String formatToDateStr(long millis) {
+    	SimpleDateFormat format = new SimpleDateFormat(DEFAULT_DATETIME_PATTERN_WITHOUT_MILLISECONDS);
+        format.setTimeZone(TimeZone.getTimeZone(CURRENT_TIMEZONE)); // NOTE: this must be GMT to calculate epoch date correctly
+        return format.format(new Date(millis));
+    }
+    
+    public static long getInitTime() {
+    	Calendar cal = Calendar.getInstance(TimeZone.getTimeZone(CURRENT_TIMEZONE));
+    	cal.set(1970, 1, 1, 0, 0, 0);
+    	return cal.getTimeInMillis();
+    } 
+    
+    public static Object checkMethod(Class classInstance, Object obj, String methodName) {
+    	if(classInstance == null || obj == null || methodName == null)
+    		return null;
+    	
+		try {
+			Method method = classInstance.getMethod(methodName);
+	    	if(method == null) {
+	    		return null;
+	    	} 
+			return method.invoke(obj);
+		} catch (IllegalAccessException | IllegalArgumentException
+				| InvocationTargetException | NoSuchMethodException | SecurityException e) {
+			return null;
+		}
     }
 }

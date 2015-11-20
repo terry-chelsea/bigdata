@@ -281,26 +281,19 @@ public class ClientDriver {
 	private boolean createProjectConnection(String projectName) {
 		ProjectMeta formerProject = currentProject;
 		//切换到相同的project
-		if(currentProject == null || !currentProject.getProjectName().equalsIgnoreCase(projectName)) {
-			List<ProjectMeta> projects = null;
-			try {
-				projects = kylin.getAllProjects();
-			} catch (KylinClientException e) {
-				logger.error("Fetch all project error", e);
-				return false;
-			}
-			boolean found = false;
-			for(ProjectMeta project : projects) {
-				if(project.getProjectName().equalsIgnoreCase(projectName)) {
-					currentProject = project;
-					found = true;
-					break;
-				}
-			}
-			if(!found) {
-				logger.error("Can not find project " + projectName);
-				return false;
-			}
+		if(currentProject != null && currentProject.getProjectName().equals(projectName)) {
+			return true;
+		}
+		try {
+			currentProject = kylin.getProjectByName(projectName);
+		} catch (KylinClientException e) {
+			logger.error("Fetch all project error", e);
+			return false;
+		}
+		if(currentProject == null) {
+			logger.error("Can not find project " + projectName);
+			currentProject = formerProject;
+			return false;
 		}
 		boolean ret = createConnection(true) != null;
 		if(!ret) {
@@ -502,6 +495,7 @@ public class ClientDriver {
 			ERROR_OUT.println("Change Current Project from " + from + " to " + projectName);
 			return 0;
 		} else {
+			ERROR_OUT.println("Can not change to project " + projectName + ", back to " + from);
 			return -1;
 		}
 	}
