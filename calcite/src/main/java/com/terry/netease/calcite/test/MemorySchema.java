@@ -34,7 +34,7 @@ public class MemorySchema extends AbstractSchema {
         
         return tables;
     }
-/*    
+    
     protected Multimap<String, Function> getFunctionMultimap() {
     	ImmutableMultimap<String,ScalarFunction> funcs = ScalarFunctionImpl.createAll(TimeOperator.class);
     	Multimap<String, Function> functions = HashMultimap.create();
@@ -46,5 +46,5 @@ public class MemorySchema extends AbstractSchema {
     	
     	return functions;
     }
-*/    
+    
 }

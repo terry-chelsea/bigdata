@@ -27,4 +27,8 @@ public class TimeOperator {
 	public Integer THE_DAY(Date date) {
 		return 16;
 	}
+	
+	public Integer THE_SYEAR(Date date, String type) {
+		return 18;
+	}
 }
