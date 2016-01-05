@@ -40,7 +40,6 @@ public abstract class KylinMethod {
 		return String.format(Driver.CONNECT_STRING_PREFIX + "//" + "%s:%d/%s", this.hostname, this.port, projectName);
 	}
 	
-	
 	protected void addHttpHeaders(HttpMethodBase method) {
         method.addRequestHeader("Accept", "application/json, text/plain, */*");
         method.addRequestHeader("Content-Type", "application/json");
@@ -49,7 +48,6 @@ public abstract class KylinMethod {
         method.addRequestHeader("Authorization", "Basic " + basicAuth);
     }
 	
-    
     protected String getMethodResponseString(HttpMethod method) {
     	String response = null;
     	try {
@@ -59,28 +57,15 @@ public abstract class KylinMethod {
 		}
     	return response;
     }
-    
-    protected String readFromInputStream(InputStream is) throws IOException {
-    	StringBuffer sb = new StringBuffer();
-    	byte[] bytes = new byte[4096];
-    	int readLen = -1;
-    	while((readLen = is.read(bytes)) > 0) {
-    		String temp = new String(bytes, 0, readLen, "UTF-8");
-    		sb.append(temp);
-    	}
-    	
-    	logger.debug("Read json data : " + sb);
-    	return sb.toString();
-    }
-    
-    protected KylinClientException createInputStreamError(String url) {
-		String errorMsg = "Create " + getMethodName() + " Method InputStream to " + url + " error";
-		logger.error(errorMsg);
-		return new KylinClientException(errorMsg);
+   
+    protected KylinClientException createInputStreamError(String url, Exception e) {
+		String errorMsg = "Fetch " + getMethodName() + " Method response to " + url + " error";
+		logger.error(errorMsg, e);
+		return new KylinClientException(errorMsg, e);
 	}
 	
 	protected KylinClientException createJsonError(String url, String data, Throwable t) {
-		String errorMsg = "Deserialize " + getMethodName() + " Method InputStream to " + url + " error";
+		String errorMsg = "Deserialize " + getMethodName() + " Method response to " + url + " error";
 		if(data != null) {
 			errorMsg += ", Input Data : " + data;
 		}

@@ -1,5 +1,9 @@
 package org.apache.kylin.client.meta;
 
+import java.util.List;
+
+import org.apache.kylin.cube.CubeSegment;
+
 //cube base infomation
 public class CubeMeta {
 	private String cubeName;
@@ -9,14 +13,13 @@ public class CubeMeta {
 	private boolean partition;
 	private String projectName;
 	private long cubeSizeKb;
-	private String rangeStart;
-	private String rangeEnd;
-	
-	private ProjectMeta project;
+	private long rangeStart;
+	private long rangeEnd;
+	private List<CubeSegment> segments;
 	
 	public CubeMeta(String cubeName, boolean enable,
 			long createTime, long retentionRange, String projectName,
-			long cubeSizeKb, String rangeStart, String rangeEnd) {
+			long cubeSizeKb, long rangeStart, long rangeEnd, List<CubeSegment> segments) {
 		super();
 		this.cubeName = cubeName;
 		this.enable = enable;
@@ -26,6 +29,7 @@ public class CubeMeta {
 		this.cubeSizeKb = cubeSizeKb;
 		this.rangeStart = rangeStart;
 		this.rangeEnd = rangeEnd;
+		this.segments = segments;
 	}
 	public String getCubeName() {
 		return cubeName;
@@ -52,28 +56,22 @@ public class CubeMeta {
 	public void setRetentionRange(int retentionRange) {
 		this.retentionRange = retentionRange;
 	}
-	public ProjectMeta getProject() {
-		return project;
-	}
-	public void setProjectName(ProjectMeta project) {
-		this.project = project;
-	}
 	public long getCubeSizeKb() {
 		return cubeSizeKb;
 	}
 	public void setCubeSizeKb(long cubeSizeKb) {
 		this.cubeSizeKb = cubeSizeKb;
 	}
-	public String getRangeStart() {
+	public long getRangeStart() {
 		return rangeStart;
 	}
-	public void setRangeStart(String rangeStart) {
+	public void setRangeStart(long rangeStart) {
 		this.rangeStart = rangeStart;
 	}
-	public String getRangeEnd() {
+	public long getRangeEnd() {
 		return rangeEnd;
 	}
-	public void setRangeEnd(String rangeEnd) {
+	public void setRangeEnd(long rangeEnd) {
 		this.rangeEnd = rangeEnd;
 	}
 	
@@ -83,11 +81,27 @@ public class CubeMeta {
 	public void setPartition(boolean partition) {
 		this.partition = partition;
 	}
+	public String getProjectName() {
+		return projectName;
+	}
+	public void setProjectName(String projectName) {
+		this.projectName = projectName;
+	}
+	public void setRetentionRange(long retentionRange) {
+		this.retentionRange = retentionRange;
+	}
+	
+	public List<CubeSegment> getSegments() {
+		return segments;
+	}
+	public void setSegments(List<CubeSegment> segments) {
+		this.segments = segments;
+	}
 	@Override
 	public String toString() {
 		return "CubeMeta [cubeName=" + cubeName + ", enable=" + enable + ", createTime="
 				+ createTime + ", retentionRange=" + retentionRange
-				+ ", project=" + project + ", cubeSizeKb=" + cubeSizeKb
+				+ ", cubeSizeKb=" + cubeSizeKb
 				+ ", rangeStart=" + rangeStart + ", rangeEnd=" + rangeEnd + "]";
 	}
 	

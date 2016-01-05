@@ -38,6 +38,7 @@ public class KylinJdbcMethod extends KylinMethod {
         Properties info = new Properties();
         info.put("user", this.username);
         info.put("password", this.password);
+        info.put("timezone", "GMT");
         String jdbcUrl = toJdbcUrl(projectName);
         try {
             conn = driver.connect(jdbcUrl, info);

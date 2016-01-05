@@ -7,16 +7,24 @@ public class CubeModelMeta {
 	private TableMeta factTable;
 	private List<LookupTableMeta> lookupTables;
 	private String filter;
+	private String partitionKey = null;
 	
-	private CubeMeta cubeDesc;
-
 	public CubeModelMeta(String cubeName, TableMeta factTable,
-			List<LookupTableMeta> lookupTables, String filter) {
+			List<LookupTableMeta> lookupTables, String filter, String partitionKey) {
 		super();
 		this.cubeName = cubeName;
 		this.factTable = factTable;
 		this.lookupTables = lookupTables;
 		this.filter = filter;
+		this.partitionKey = partitionKey;
+	}
+	
+	public String getPartitionKey() {
+		return partitionKey;
+	}
+
+	public void setPartitionKey(String partitionKey) {
+		this.partitionKey = partitionKey;
 	}
 
 	public String getCubeName() {
@@ -51,19 +59,11 @@ public class CubeModelMeta {
 		this.filter = filter;
 	}
 
-	public CubeMeta getCubeDesc() {
-		return cubeDesc;
-	}
-
-	public void setCubeDesc(CubeMeta cubeDesc) {
-		this.cubeDesc = cubeDesc;
-	}
-
 	@Override
 	public String toString() {
 		return "CubeModelMeta [cubeName=" + cubeName + ", factTable="
 				+ factTable + ", lookupTables=" + lookupTables + ", filter="
-				+ filter + ", cubeDesc=" + cubeDesc + "]";
+				+ filter + "]";
 	}
 	
 }

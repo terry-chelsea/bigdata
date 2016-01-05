@@ -21,7 +21,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.apache.kylin</groupId>
 	<artifactId>kylin-cli</artifactId>
-	<version>1.0-incubating</version>
+	<version>1.0.2</version>
 	<packaging>jar</packaging>
 	<name>Kylin:Client</name>
 	<description>Kylin linux client</description>
@@ -38,12 +38,6 @@
 	</properties>
 
 	<dependencies>
-		
-		<dependency>
-			<groupId>log4j</groupId>
-			<artifactId>log4j</artifactId>
-			<version>${log4j.version}</version>
-		</dependency>
 		<dependency>
 			<groupId>org.apache.kylin</groupId>
 			<artifactId>kylin-jdbc</artifactId>
@@ -58,10 +52,28 @@
 		
 		<dependency>
 			<groupId>org.apache.kylin</groupId>
+		    <artifactId>kylin-dictionary</artifactId>
+			<version>${kylin.version}</version>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.apache.kylin</groupId>
 		    <artifactId>kylin-cube</artifactId>
 			<version>${kylin.version}</version>
 		</dependency>
-        
+		
+		<dependency>
+			<groupId>org.apache.kylin</groupId>
+		    <artifactId>kylin-job</artifactId>
+			<version>${kylin.version}</version>
+		</dependency>
+		
+       	<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>${log4j.version}</version>
+		</dependency>
+		
 		<dependency>
 			<groupId>commons-httpclient</groupId>
 			<artifactId>commons-httpclient</artifactId>
@@ -100,39 +112,50 @@
                     <target>${javaVersion}</target>
                 </configuration>
             </plugin>
-			
-			<plugin>
-				<artifactId>maven-assembly-plugin</artifactId>
-				<configuration>
-					<descriptorRefs>
-						<descriptorRef>jar-with-dependencies</descriptorRef>
-					</descriptorRefs>
-					<appendAssemblyId>false</appendAssemblyId>
-				</configuration>
-				<executions>
-					<execution>
-						<id>make-assembly</id>
-						<phase>package</phase>
-						<goals>
-							<goal>single</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-			
-			<plugin>
+	
+			<plugin>  
+                <groupId>org.apache.maven.plugins</groupId>  
+                <artifactId>maven-jar-plugin</artifactId>  
+                <configuration>  
+                    <archive>  
+                        <manifest>  
+                            <addClasspath>true</addClasspath>  
+                            <classpathPrefix>/</classpathPrefix>
+                            <mainClass>org.apache.kylin.client.KylinClient</mainClass>  
+                        </manifest>  
+                    </archive>  
+                </configuration>  
+            </plugin>
+            
+            <plugin>  
+                <groupId>org.apache.maven.plugins</groupId>  
+                <artifactId>maven-dependency-plugin</artifactId>  
+                <executions>  
+                    <execution>  
+                        <id>copy</id>
+                        <phase>install</phase>  
+                        <goals>  
+                            <goal>copy-dependencies</goal>  
+                        </goals>  
+                        <configuration>
+                            <outputDirectory>target/lib</outputDirectory>
+                        </configuration>  
+                    </execution>  
+                </executions>  
+            </plugin>  
+            
+            <plugin>
 				<artifactId>maven-resources-plugin</artifactId>
 				<version>2.4.2</version>
 				<executions>
 					<execution>
 						<id>copy-config</id>
-						<!-- here the phase you need -->
 						<phase>package</phase>
 						<goals>
 							<goal>copy-resources</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>bin</outputDirectory>
+							<outputDirectory>target</outputDirectory>
 							<resources>
 								<resource>
 									<directory>src/main/resources</directory>
@@ -144,7 +167,16 @@
 				</executions>
 			</plugin>
 			
+			
 		</plugins>
 	</build>
+	
+	<distributionManagement>
+    	<repository>
+        	<id>artifactory</id>
+        	<name>Netease Repository</name>
+        	<url>http://mvn.hz.netease.com/artifactory/libs-releases</url>
+    	</repository>
+	</distributionManagement>
 
 </project>

@@ -26,7 +26,7 @@ public class TestKylin {
 	public static Random rand = new Random();
 	private static int DIM_NUMBER = 2;
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception {
 		if(args.length != 2) {
 			System.out.println("./command projectName cubeName");
 			return ;
@@ -34,8 +34,8 @@ public class TestKylin {
 		String projectName = args[0];
 		String cubeName = args[1];
 		
-    	Kylin kylin = new Kylin("10.164.96.37", 7070);
-    	List<ProjectMeta> projects = kylin.getAllProject();
+    	Kylin kylin = new Kylin("172.17.3.102", 7070);
+    	List<ProjectMeta> projects = kylin.getAllProjects();
     	
     	ProjectMeta curProject = null;
     	for(ProjectMeta project : projects) {
@@ -50,14 +50,14 @@ public class TestKylin {
     		return ;
     	}
     	
-    	CubeMeta cube = kylin.getCubeByName(curProject, cubeName);
+    	CubeMeta cube = kylin.getCubeByName(curProject.getProjectName(), cubeName);
     	if(cube == null) {
     		System.out.println("Can not found cube " + cubeName);
     	}
-    	CubeDescMeta cubeDesc = kylin.getCubeDescription(cube);
+    	CubeDescMeta cubeDesc = kylin.getCubeDescription(curProject.getProjectName(), cube.getCubeName());
     	System.out.println("Cube desc : " + cubeDesc);
     	
-    	CubeModelMeta cubeModel = kylin.getCubeModel(cube);
+    	CubeModelMeta cubeModel = kylin.getCubeModel(curProject.getProjectName(),cube.getCubeName());
     	
     	List<CubeMeasureMeta> measures = cubeDesc.getMeasures();
 		StringBuffer measureString = new StringBuffer();
@@ -152,7 +152,7 @@ public class TestKylin {
 		return sb.toString();
 	}
 	
-	public static void executeSql(String projectName, Kylin kylin, String sql) {
+	public static void executeSql(String projectName, Kylin kylin, String sql) throws Exception {
 		Connection conn = kylin.getJdbcConnection(projectName);
 		if(conn == null) {
 			System.err.println("Create jdbc connection for project " + projectName + " error");

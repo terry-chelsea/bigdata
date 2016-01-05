@@ -4,24 +4,26 @@ import java.util.List;
 
 //cube description about dimensions and measures
 public class CubeDescMeta {
-	private CubeMeta cubeDesc;
+	private String cubeName;
 	
 	private List<CubeDimensionMeta> dimensions;
 	private List<CubeMeasureMeta> measures;
 	
-	public CubeDescMeta(CubeMeta cubeDesc, List<CubeDimensionMeta> dimensions,
+	public CubeDescMeta(String cubeName, List<CubeDimensionMeta> dimensions,
 			List<CubeMeasureMeta> measures) {
-		this.cubeDesc = cubeDesc;
+		this.cubeName = cubeName;
 		this.dimensions = dimensions;
 		this.measures = measures;
 	}
 	
-	public CubeMeta getCubeDesc() {
-		return cubeDesc;
+	public String getCubeName() {
+		return cubeName;
 	}
-	public void setCubeDesc(CubeMeta cubeDesc) {
-		this.cubeDesc = cubeDesc;
+
+	public void setCubeName(String cubeName) {
+		this.cubeName = cubeName;
 	}
+
 	public List<CubeDimensionMeta> getDimensions() {
 		return dimensions;
 	}
@@ -37,7 +39,7 @@ public class CubeDescMeta {
 
 	@Override
 	public String toString() {
-		return "CubeDescMeta [cubeDesc=" + cubeDesc + ", dimensions="
+		return "CubeDescMeta [cubeName=" + cubeName + ", dimensions="
 				+ dimensions + ", measures=" + measures + "]";
 	}
 	

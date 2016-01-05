@@ -1,9 +1,7 @@
 package org.apache.kylin.client.method;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -11,6 +9,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -18,8 +17,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
 
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.log4j.Logger;
 
 public class Utils {
@@ -112,7 +109,7 @@ public class Utils {
         }
         RESULT_OUT.println(headerLine);
         
-        return datas.size() - 1;
+        return datas.size();
 	}
 	
 	public static String getDataLine(List<String> data, List<Integer> indes, String spaces) {
@@ -253,9 +250,21 @@ public class Utils {
         return format.format(new Date(millis));
     }
     
+    public static long dateToLong(String dateStr) {
+    	SimpleDateFormat format = new SimpleDateFormat(DEFAULT_DATETIME_PATTERN_WITHOUT_MILLISECONDS);
+    	Date date = null;
+		try {
+			date = format.parse(dateStr);
+		} catch (ParseException e) {
+			e.printStackTrace();
+			return 0;
+		}
+    	return date.getTime();
+    } 
+    
     public static long getInitTime() {
     	Calendar cal = Calendar.getInstance(TimeZone.getTimeZone(CURRENT_TIMEZONE));
-    	cal.set(1970, 1, 1, 0, 0, 0);
+    	cal.set(1970, 0, 1, 0, 0, 0);
     	return cal.getTimeInMillis();
     } 
     

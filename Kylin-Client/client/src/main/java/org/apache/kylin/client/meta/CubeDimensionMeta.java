@@ -1,7 +1,5 @@
 package org.apache.kylin.client.meta;
 
-import java.util.List;
-
 public class CubeDimensionMeta {
 	private String name;
 	private ColumnMeta column;

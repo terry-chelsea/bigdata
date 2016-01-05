@@ -3,13 +3,14 @@ package org.apache.kylin.client.meta;
 public class CubeMeasureMeta {
 	private String name;
 	private String expression;
+	private String paramType;
 	private String value;
     private String returnType;
-    public static final String COLUMN_TYPE = "column";
     
-	public CubeMeasureMeta(String name, String expression, String value, String returnType) {
+	public CubeMeasureMeta(String name, String expression, String paramType, String value, String returnType) {
 		this.name = name;
 		this.expression = expression;
+		this.paramType = paramType;
 		this.value = value;
 		this.returnType = returnType;
 	}
@@ -20,6 +21,14 @@ public class CubeMeasureMeta {
 
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	public String getParamType() {
+		return paramType;
+	}
+
+	public void setParamType(String paramType) {
+		this.paramType = paramType;
 	}
 
 	public String getExpression() {
@@ -47,15 +56,18 @@ public class CubeMeasureMeta {
 	}
 
 	public String toAggerateExpression() {
+		if("COUNT_DISTINCT".equalsIgnoreCase(expression)) {
+			return String.format("COUNT(DISTINCT %s)", value);
+		}
 		StringBuilder sb = new StringBuilder(expression);
         sb.append("(").append(value).append(")");
-        return sb.toString(); 
+        return sb.toString();
 	}
 
 	@Override
 	public String toString() {
 		return "CubeMeasureMeta [name=" + name + ", expression=" + expression
-				+ ", value=" + value + ", returnType=" + returnType + "]";
+				+ ", parameter type=" + paramType + ", value=" + value + ", returnType=" + returnType + "]";
 	}
 	
 	/*

@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,6 +34,8 @@ import org.apache.kylin.client.meta.ProjectMeta;
 import org.apache.kylin.client.meta.TableMeta;
 import org.apache.kylin.client.method.Utils;
 import org.apache.log4j.Logger;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class ClientDriver {
 	private static String SHOW_PROJECTS = "SHOW PROJECTS";
@@ -55,6 +58,7 @@ public class ClientDriver {
 	private static Pattern SHOW_CUBES_PATTERN = Pattern.compile("(?i)\\s*SHOW\\s+CUBES");
 	private static Pattern DESCRIBE_CUBE_PATTERN = Pattern.compile("(?i)\\s*DESCRIBE\\s+(.*)");
 	private static Pattern SELECT_PATTERN = Pattern.compile("(?i)" + "\\s*SELECT\\s+.*");
+	private static ObjectMapper jsonMapper = new ObjectMapper();
 	
 	private static String PROMPT_DEFAULT = "kylin";
 	private Logger logger = Logger.getLogger(ClientDriver.class);
@@ -90,7 +94,7 @@ public class ClientDriver {
 	    try {
 	    	ConsoleReader reader = new ConsoleReader(System.in, new PrintWriter(ERROR_OUT));
 			reader.setBellEnabled(false);
-		    final String HISTORYFILE = ".hivehistory";
+		    final String HISTORYFILE = ".kylinhistory";
 		    String historyDirectory = System.getProperty("user.home");
 		    if ((new File(historyDirectory)).exists()) {
 		    	String historyFile = historyDirectory + File.separator + HISTORYFILE;
@@ -347,7 +351,18 @@ public class ClientDriver {
             while(result.next()) {
                 List<String> data = new ArrayList<String>(columnSize);
                 for(int i = 0 ; i < columnSize ; ++ i) {
-                    data.add(result.getString(i + 1));
+                	String type = meta.getColumnTypeName(i + 1).toUpperCase();
+                	Object obj = null;
+                	if(type.equalsIgnoreCase("DATE")) {
+                		obj = result.getDate(i + 1);
+                	} else if (type.contains("TIMESTAMP")) {
+                		obj = result.getTimestamp(i + 1);
+                	} else if (type.contains("TIME")) {
+                		obj = result.getTime(i + 1);
+                	} else {
+                    	obj = result.getString(i + 1);
+                	}
+                	data.add((obj == null ? "NULL" : obj.toString()));
                 }
                 datas.add(data);
             }
@@ -355,7 +370,7 @@ public class ClientDriver {
 		} catch (SQLException e) {
 			logger.error("Execute SELECT SQL " + cmd + " error", e);
 			//output error message to user
-			ERROR_OUT.println(e.getMessage());
+			ERROR_OUT.println("\n" + getSqlErrorMessage(e.getMessage()));
 			return -1;
 		} finally {
 			Utils.close(result, state, null);
@@ -370,7 +385,7 @@ public class ClientDriver {
 		
 		CubeMeta cubeMeta;
 		try {
-			cubeMeta = kylin.getCubeByName(currentProject, cubeName);
+			cubeMeta = kylin.getCubeByName(currentProject.getProjectName(), cubeName);
 		} catch (KylinClientException e) {
 			logger.error("Can not find cube " + cubeName + " in project " + 
 					currentProject.getProjectName());
@@ -379,8 +394,8 @@ public class ClientDriver {
 		CubeModelMeta cubeModel;
 		CubeDescMeta cubeDesc;
 		try {
-			cubeModel = kylin.getCubeModel(cubeMeta);
-			cubeDesc = kylin.getCubeDescription(cubeMeta);
+			cubeModel = kylin.getCubeModel(currentProject.getProjectName(), cubeName);
+			cubeDesc = kylin.getCubeDescription(currentProject.getProjectName(), cubeName);
 		} catch (KylinClientException e) {
 			logger.error("Fetch cube model and desc of cube " + cubeMeta.getCubeName() + 
 					"error", e);
@@ -438,11 +453,11 @@ public class ClientDriver {
 		int count = 0;
 		count += Utils.printResultWithTable(headers, datas, 0);
 		ERROR_OUT.println("\nCube Measures : ");
-		headers = Arrays.asList("NAME", "EXPRESSION", "PARAMETER", "TYPE");
+		headers = Arrays.asList("NAME", "EXPRESSION", "PARAMETER", "TYPE", "FUNCTION");
 		datas = new LinkedList<List<String>>();
 		
 		for(CubeMeasureMeta measure : cubeDesc.getMeasures()) {
-			datas.add(Arrays.asList(measure.getName(), measure.getExpression(), measure.getValue(), measure.getReturnType()));
+			datas.add(Arrays.asList(measure.getName(), measure.getExpression(), measure.getValue(), measure.getReturnType(), measure.toAggerateExpression()));
 		}
 		count += Utils.printResultWithTable(headers, datas, 0);
 		return count;
@@ -451,7 +466,7 @@ public class ClientDriver {
 	private int processShowCubesCmd(String cmd) {
 		List<CubeMeta> cubes;
 		try {
-			cubes = kylin.getProjectCubes(currentProject);
+			cubes = kylin.getCubes(currentProject.getProjectName());
 		} catch (KylinClientException e) {
 			logger.error("Fetch cubes of project " + currentProject.getProjectName() + 
 					" error", e);
@@ -460,8 +475,17 @@ public class ClientDriver {
 		List<String> headers = Arrays.asList("NAME", "PROJECT", "ENABLE", "SIZE", "START_TIME", "END_TIME");
 		List<List<String>> datas = new LinkedList<List<String>>();
 		for(CubeMeta cube : cubes) {
+			long currentDate = System.currentTimeMillis();
+			String startTime = "1997-01-01 00:00:00";
+			String endTime = Utils.formatToDateStr(currentDate);
+			if(cube.getRangeStart() > 0 && cube.getRangeStart() < currentDate) {
+				startTime = Utils.formatToDateStr(cube.getRangeStart());
+			}
+			if(cube.getRangeEnd() > 0 && cube.getRangeEnd() < currentDate) {
+				endTime = Utils.formatToDateStr(cube.getRangeEnd());
+			}
 			datas.add(Arrays.asList(cube.getCubeName(), currentProject.getProjectName(), String.valueOf(cube.isEnable()).toUpperCase(), 
-					cube.getCubeSizeKb() + "KB", String.valueOf(cube.getRangeStart()), String.valueOf(cube.getRangeEnd())));
+					cube.getCubeSizeKb() + "KB", startTime, endTime));
 		}
 		
 		return Utils.printResultWithTable(headers, datas, 0);
@@ -497,6 +521,35 @@ public class ClientDriver {
 		} else {
 			ERROR_OUT.println("Can not change to project " + projectName + ", back to " + from);
 			return -1;
+		}
+	}
+	
+	//获取执行query错误提示信息，最后一个"Caused by: java.io.IOException"一行的信息
+	private static String getSqlErrorMessage(String message) {
+		if(message == null) {
+			return "Query error !";
+		}
+		Pattern pattern = Pattern.compile(".*java.io.IOException:.*and response:(.*)");
+		String[] lines = message.split("\n");
+		String errorLine = null;
+		for(int i = lines.length - 1 ; i >= 0 ; -- i) {
+			Matcher match = pattern.matcher(lines[i]);
+			if(!match.matches())
+				continue;
+			errorLine = match.group(match.groupCount());
+			break;
+		}
+		if(errorLine == null) 
+			return message;
+		try {
+			Map<String, String> errorMap = jsonMapper.readValue(errorLine, Map.class);
+			String errorMsg = errorMap.get("exception");
+			if(errorMsg == null)
+				return message; 
+			else 
+				return errorMsg;
+		} catch (IOException e) {
+			return message;
 		}
 	}
 	
