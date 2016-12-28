@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<configuration>
+
+  <property>
+      <name>hive.server2.zookeeper.namespace</name>
+      <value>impala-dev</value>
+	</property>		
+	<property>
+      <name>hive.server2.thrift.port</name>
+      <value>21050</value>
+	</property>		
+	<property>
+      <name>hive.server2.thrift.bind.host</name>
+      <value>hostname</value>
+	</property>
+	<property>
+      <name>hive.zookeeper.quorum</name>
+      <value>zk-server-lists</value>
+	</property>	
+	<property>
+      <name>hive.zookeeper.client.port</name>
+      <value>2181</value>
+	</property>	
+
+
+</configuration>

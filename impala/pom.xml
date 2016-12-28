@@ -1,0 +1,84 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.netease.impala.tools</groupId>
+  <artifactId>impala-tools</artifactId>
+  <version>0.0.1</version>
+  
+  <dependencies> 
+		<dependency>
+    		<groupId>org.apache.hive</groupId>
+    		<artifactId>hive-jdbc</artifactId>
+    		<version>1.2.1</version>
+		</dependency>
+		
+		<dependency>
+		    <groupId>org.apache.hive</groupId>
+    		<artifactId>hive-service</artifactId>
+    		<version>1.2.1</version>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-common</artifactId>
+			<version>2.5.2</version>
+		</dependency>
+
+		<dependency> 
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>5.1.22</version>
+		</dependency>
+		
+		<dependency>
+		    <groupId>junit</groupId>
+		    <artifactId>junit</artifactId>
+		    <version>4.11</version>
+		</dependency>
+<!-- 		
+		<dependency> 
+    		<groupId>statestore</groupId>  
+    		<artifactId>statestore</artifactId>  
+   			<version>2.7.0</version>  
+   			<scope>system</scope>  
+   			<systemPath>${project.basedir}/libs/statestore-api.jar</systemPath>  
+		</dependency>
+-->		
+  </dependencies>
+  
+    <build>
+		<plugins>
+            <plugin>  
+                <groupId>org.apache.maven.plugins</groupId>  
+                <artifactId>maven-dependency-plugin</artifactId>  
+                <executions>  
+                    <execution>  
+                        <id>copy</id>
+                        <phase>install</phase>  
+                        <goals>  
+                            <goal>copy-dependencies</goal>
+                        </goals>  
+                        <configuration>
+                            <outputDirectory>target/lib</outputDirectory>
+                        </configuration>  
+                    </execution>
+                </executions>  
+            </plugin>  
+			
+			<plugin>  
+                <artifactId>maven-source-plugin</artifactId>  
+                <version>2.1</version>  
+                <configuration>  
+                    <attach>true</attach>  
+                </configuration>  
+                <executions>  
+                    <execution>  
+                        <phase>deploy</phase>  
+                        <goals>  
+                            <goal>jar</goal>  
+                        </goals>  
+                    </execution>  
+                </executions>  
+            </plugin>
+		</plugins>
+	</build>
+</project>
